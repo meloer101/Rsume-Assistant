@@ -43,37 +43,21 @@ def ingest_resume_pdf(pdf_path: str) -> str:
 
 
 def retrieve_pm_knowledge(query: str) -> str:
-    """
-    Retrieves relevant PM resume writing knowledge from the local knowledge base.
-    Use this tool whenever the user wants to:
-    - Write or improve resume bullets
-    - Rewrite technical experience into PM language
-    - Get examples of strong PM resume bullets
-    - Understand how to frame their project for a specific job description
-
-    Args:
-        query: A description of the user's project or experience,
-               combined with their target role or job description keywords.
-
-    Returns:
-        Relevant knowledge including the user's own resume content,
-        before/after examples, PM action verbs, and bullet formulas.
-    """
+    print(f"\n[RAG DEBUG] 收到的 query: {query}")  # 加这行
+    
     query_embedding = _embed_model.encode(query).tolist()
     context_parts = []
 
-    # 检索用户简历内容（type: resume）
     resume_results = _collection.query(
         query_embeddings=[query_embedding],
-        n_results=3,
+        n_results=4,
         where={"type": "resume"},
         include=["documents", "distances", "metadatas"]
     )
     for doc, dist in zip(resume_results["documents"][0], resume_results["distances"][0]):
-        if 1 - dist > 0.1:
+        if 1 - dist > 0.05:
             context_parts.append(f"[user_resume]\n{doc}")
 
-    # 检索知识库（before_after / formula / verb_rule）
     for doc_type in ["before_after", "formula", "verb_rule"]:
         results = _collection.query(
             query_embeddings=[query_embedding],
@@ -85,7 +69,8 @@ def retrieve_pm_knowledge(query: str) -> str:
             if 1 - dist > 0.1:
                 context_parts.append(f"[{doc_type}]\n{doc}")
 
-    if not context_parts:
-        return "No relevant knowledge found. Proceed with general PM resume writing principles."
-
-    return "\n\n".join(context_parts)
+    result = "\n\n".join(context_parts) if context_parts else "No relevant knowledge found."
+    
+    print(f"[RAG DEBUG] 返回内容标签: {[p.split(chr(10))[0] for p in context_parts]}")  # 加这行
+    
+    return result
